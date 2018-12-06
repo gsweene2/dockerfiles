@@ -1,4 +1,6 @@
 
+# How to Build the Project, the Image, and run a Container with the image
+
 ## Set up your Dockerfile inside your project directory
 ```
 .
@@ -25,6 +27,15 @@
 
 ```
 
+## Build the Project
+Why? This creates the /target directory with the artifact we will reference in our Dockerfile to build the image
+
+Prerequisite: Install java, install maven
+```
+java -version
+mvn --version
+mvn clean install
+```
 
 ## Build your docker image with the name "spring-mvc-sample-image"
 docker build . -t spring-mvc-sample-image

@@ -16,36 +16,45 @@ resource "aws_vpc" "terra_vpc" {
 
 data "aws_availability_zones" "available" {}
 
-resource "aws_vpc_ipv4_cidr_block_association" "terra_ingress_subnet_az_1" {
+resource "aws_vpc_ipv4_cidr_block_association" "terra_ingress_subnet" {
+  count = "${var.az_count}"  
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block = "10.0.1.0/24"
-  availability_zone = "${data.aws_availability_zones.available.names[0]}"
-}
-
-resource "aws_vpc_ipv4_cidr_block_association" "terra_ingress_subnet_az_2" {
-  vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block = "10.0.1.0/24"
-  availability_zone = "${data.aws_availability_zones.available.names[1]}"
+  cidr_block        = "${cidrsubnet(aws_vpc.terra_vpc.cidr_block, 8, count.index)}"
+  availability_zone = "${data.aws_availability_zones.available.names[count.index]}"
 }
 
 resource "aws_vpc_ipv4_cidr_block_association" "terra_private_subnet" {
+  count = "${var.az_count}"
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block = "10.0.2.0/24"
-  availability_zone = "${data.aws_availability_zones.available.names[0]}"
-}
-
-resource "aws_vpc_ipv4_cidr_block_association" "terra_private_subnet" {
-  vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block = "10.0.3.0/24"
-  availability_zone = "${data.aws_availability_zones.available.names[1]}"
+  cidr_block        = "${cidrsubnet(aws_vpc.terra_vpc.cidr_block, 8, count.index)}"
+  availability_zone = "${data.aws_availability_zones.available.names[count.index]}"
 }
 
 resource "aws_vpc_ipv4_cidr_block_association" "terra_data_subnet" {
+  count = "${var.az_count}"  
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block = "10.0.4.0/24"
+  cidr_block        = "${cidrsubnet(aws_vpc.terra_vpc.cidr_block, 8, count.index)}"
+  availability_zone = "${data.aws_availability_zones.available.names[count.index]}"
 }
 
 resource "aws_security_group" "allow_all" {
+  name        = "allow_all"
+  description = "Allow all inbound traffic"
+  vpc_id     = "${aws_vpc.terra_vpc.id}"
+
+  ingress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "allow_all"
+  }
+}
+
+resource "aws_security_group" "terra_instance_sg" {
   name        = "allow_all"
   description = "Allow all inbound traffic"
   vpc_id     = "${aws_vpc.terra_vpc.id}"
@@ -67,7 +76,7 @@ resource "aws_lb" "terra-alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = ["${aws_security_group.allow_all.id}"]
-  subnets            = ["${aws_subnet.terra_ingress_subnet_az_1.*.id}"]
+  subnets            = ["${aws_subnet.terra_ingress_subnet.*.id}"]
 
   enable_deletion_protection = true
 
@@ -82,23 +91,23 @@ resource "aws_lb" "terra-alb" {
   }
 }
 
-resource "aws_internet_gateway" "gw" {
-  vpc_id = "${aws_vpc.main.id}"
+resource "aws_internet_gateway" "terra_gw" {
+  vpc_id = "${aws_vpc.terra_vpc.id}"
 }
 
-resource "aws_route_table" "r" {
-  vpc_id = "${aws_vpc.main.id}"
+resource "aws_route_table" "terra_route_table" {
+  vpc_id = "${aws_vpc.terra_vpc.id}"
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = "${aws_internet_gateway.gw.id}"
+    gateway_id = "${aws_internet_gateway.terra_gw.id}"
   }
 }
 
 resource "aws_route_table_association" "a" {
   count          = "${var.az_count}"
-  subnet_id      = "${element(aws_subnet.main.*.id, count.index)}"
-  route_table_id = "${aws_route_table.r.id}"
+  subnet_id      = "${element(aws_subnet.terra_private_subnet.*.id, count.index)}"
+  route_table_id = "${aws_route_table.terra_route_table.id}"
 }
 
 ## Compute
@@ -106,6 +115,24 @@ resource "aws_route_table_association" "a" {
 resource "aws_placement_group" "terra-pg" {
   name     = "test"
   strategy = "cluster"
+}
+
+
+resource "aws_launch_configuration" "terra_lc" {
+  security_groups = [
+    "${aws_security_group.terra_instance_sg.id}",
+  ]
+
+  key_name                    = "${var.key_name}"
+  image_id                    = "${data.aws_ami.stable_coreos.id}"
+  instance_type               = "${var.instance_type}"
+  iam_instance_profile        = "${aws_iam_instance_profile.app.name}"
+  user_data                   = "${data.template_file.cloud_config.rendered}"
+  associate_public_ip_address = true
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_autoscaling_group" "terra-app-asg" {

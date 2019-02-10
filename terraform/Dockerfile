@@ -40,7 +40,8 @@ RUN pip --version
 ################################
 RUN pip install awscli --upgrade --user
 
+# add aws cli location to path
 ENV PATH=~/.local/bin:$PATH
 
 # Adds local templates directory and contents in /usr/local/terrafrom-templates
-ADD templates /usr/local/terraform-templates
+ADD templates /usr/local/bin/templates

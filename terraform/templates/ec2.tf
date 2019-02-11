@@ -2,7 +2,6 @@ provider "aws" {
   region = "us-west-1"
 }
 
-
 ## Network
 
 resource "aws_vpc" "terra_vpc" {
@@ -162,4 +161,12 @@ resource "aws_autoscaling_group" "terra-app-asg" {
     propagate_at_launch = true
   }
 
+}
+
+data "template_file" "cloud_config" {
+  template = "${file("${path.module}/cloud-config.yml")}"
+
+  vars {
+    aws_region         = "${var.aws_region}"
+  }
 }

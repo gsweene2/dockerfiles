@@ -70,6 +70,16 @@ resource "aws_security_group" "terra_instance_sg" {
   }
 }
 
+resource "aws_s3_bucket" "lb_logs" {
+  bucket = "my-tf-test-bucket"
+  acl    = "public"
+
+  tags = {
+    Name        = "My bucket"
+    Environment = "Dev"
+  }
+}
+
 resource "aws_lb" "terra-alb" {
   name               = "garretts-terra-alb"
   internal           = false
@@ -103,7 +113,7 @@ resource "aws_route_table" "terra_route_table" {
   }
 }
 
-resource "aws_route_table_association" "a" {
+resource "aws_route_table_association" "terra_route_table_assoc" {
   count          = "${var.az_count}"
   subnet_id      = "${element(aws_subnet.terra_private_subnet.*.id, count.index)}"
   route_table_id = "${aws_route_table.terra_route_table.id}"
@@ -116,6 +126,56 @@ resource "aws_placement_group" "terra-pg" {
   strategy = "cluster"
 }
 
+data "aws_ami" "basic_ubuntu" {
+  most_recent = true
+
+  filter {
+    name   = "description"
+    values = ["Canonical, Ubuntu, 16.04 LTS, amd64 xenial image *"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "Platform"
+    values = ["Ubuntu"]
+  }
+
+  owners = ["099720109477"] # Ubuntu people
+}
+
+resource "aws_iam_instance_profile" "app" {
+  name = "tf-ecs-instprofile"
+  role = "${aws_iam_role.terra_app_instance.name}"
+}
+
+resource "aws_iam_role" "terra_app_instance" {
+  name = "garrett-terra-instance-role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+}
 
 resource "aws_launch_configuration" "terra_lc" {
   security_groups = [
@@ -123,7 +183,7 @@ resource "aws_launch_configuration" "terra_lc" {
   ]
 
   key_name                    = "${var.key_name}"
-  image_id                    = "${data.aws_ami.stable_coreos.id}"
+  image_id                    = "${data.aws_ami.basic_ubuntu.id}"
   instance_type               = "${var.instance_type}"
   iam_instance_profile        = "${aws_iam_instance_profile.app.name}"
   user_data                   = "${data.template_file.cloud_config.rendered}"

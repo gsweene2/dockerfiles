@@ -80,7 +80,7 @@ resource "aws_s3_bucket" "lb_logs" {
   }
 }
 
-resource "aws_lb" "terra-alb" {
+resource "aws_alb" "terra-alb" {
   name               = "garretts-terra-alb"
   internal           = false
   load_balancer_type = "application"
@@ -203,8 +203,8 @@ resource "aws_autoscaling_group" "terra-app-asg" {
   desired_capacity          = 2
   force_delete              = true
   placement_group           = "${aws_placement_group.terra-pg.id}"
-  launch_configuration      = "${aws_launch_configuration.terra-lc.name}"
-  vpc_zone_identifier       = ["${aws_subnet.terra_private_subnet.id}", "${aws_subnet.terra_private_subnet.id}"]
+  launch_configuration      = "${aws_launch_configuration.terra_lc.name}"
+  vpc_zone_identifier       = ["${aws_subnet.terra_private_subnet.*.id}"]
 
   initial_lifecycle_hook {
     name                 = "terra-lifecycle-hook"

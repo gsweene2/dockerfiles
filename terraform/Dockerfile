@@ -50,3 +50,5 @@ ENV PATH=~/.local/bin:$PATH
 
 # Adds local templates directory and contents in /usr/local/terrafrom-templates
 ADD templates /usr/local/bin/templates
+
+RUN mkdir ~/.aws && touch ~/.aws/credentials

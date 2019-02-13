@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "us-west-1"
+  region = "us-west-2"
 }
 
 ## Network
@@ -15,25 +15,46 @@ resource "aws_vpc" "terra_vpc" {
 
 data "aws_availability_zones" "available" {}
 
-resource "aws_vpc_ipv4_cidr_block_association" "terra_ingress_subnet" {
-  count = "${var.az_count}"  
+resource "aws_vpc_ipv4_cidr_block_association" "terra_ingress_subnet_az_1" {
+  count = 1  
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block        = "${cidrsubnet(aws_vpc.terra_vpc.cidr_block, 8, count.index)}"
-  availability_zone = "${data.aws_availability_zones.available.names[count.index]}"
+  cidr_block        = "10.0.1.0/24"
+  availability_zone = "us-west-2a"
 }
 
-resource "aws_vpc_ipv4_cidr_block_association" "terra_private_subnet" {
-  count = "${var.az_count}"
+resource "aws_vpc_ipv4_cidr_block_association" "terra_ingress_subnet_az_2" {
+  count = 1  
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block        = "${cidrsubnet(aws_vpc.terra_vpc.cidr_block, 8, count.index)}"
-  availability_zone = "${data.aws_availability_zones.available.names[count.index]}"
+  cidr_block        = "10.0.2.0/24"
+  availability_zone = "us-west-2b"
 }
 
-resource "aws_vpc_ipv4_cidr_block_association" "terra_data_subnet" {
-  count = "${var.az_count}"  
+resource "aws_vpc_ipv4_cidr_block_association" "terra_private_subnet_az_1" {
+  count = 1  
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block        = "${cidrsubnet(aws_vpc.terra_vpc.cidr_block, 8, count.index)}"
-  availability_zone = "${data.aws_availability_zones.available.names[count.index]}"
+  cidr_block        = "10.0.3.0/24"
+  availability_zone = "us-west-2a"
+}
+
+resource "aws_vpc_ipv4_cidr_block_association" "terra_private_subnet_az_2" {
+  count = 1  
+  vpc_id     = "${aws_vpc.terra_vpc.id}"
+  cidr_block        = "10.0.4.0/24"
+  availability_zone = "us-west-2b"
+}
+
+resource "aws_vpc_ipv4_cidr_block_association" "terra_data_subnet_az_1" {
+  count = 1  
+  vpc_id     = "${aws_vpc.terra_vpc.id}"
+  cidr_block        = "10.0.5.0/24"
+  availability_zone = "us-west-2a"
+}
+
+resource "aws_vpc_ipv4_cidr_block_association" "terra_data_subnet_az_2" {
+  count = 1  
+  vpc_id     = "${aws_vpc.terra_vpc.id}"
+  cidr_block        = "10.0.6.0/24"
+  availability_zone = "us-west-2b"
 }
 
 resource "aws_security_group" "allow_all" {
@@ -80,12 +101,19 @@ resource "aws_s3_bucket" "lb_logs" {
   }
 }
 
-resource "aws_alb" "terra-alb" {
+resource "aws_alb_target_group" "terra_alb_target_group" {
+  name     = "garrett-terra-alb-target-group"
+  port     = 8080
+  protocol = "HTTP"
+  vpc_id   = "${aws_vpc.main.id}"
+}
+
+resource "aws_alb" "terra_alb" {
   name               = "garretts-terra-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = ["${aws_security_group.allow_all.id}"]
-  subnets            = ["${aws_subnet.terra_ingress_subnet.*.id}"]
+  subnets            = ["${aws_subnet.terra_ingress_subnet_az_1.id}","${aws_subnet.terra_ingress_subnet_az_1.id}"]
 
   enable_deletion_protection = true
 
@@ -97,6 +125,17 @@ resource "aws_alb" "terra-alb" {
 
   tags = {
     Environment = "production"
+  }
+}
+
+resource "aws_alb_listener" "terra_alb_listener" {
+  load_balancer_arn = "${aws_alb.terra_alb.id}"
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    target_group_arn = "${aws_alb_target_group.terra_alb_target_group.id}"
+    type             = "forward"
   }
 }
 
@@ -113,9 +152,15 @@ resource "aws_route_table" "terra_route_table" {
   }
 }
 
-resource "aws_route_table_association" "terra_route_table_assoc" {
+resource "aws_route_table_association" "terra_route_table_assoc_az_1" {
   count          = "${var.az_count}"
-  subnet_id      = "${element(aws_subnet.terra_private_subnet.*.id, count.index)}"
+  subnet_id      = "${aws_subnet.terra_ingress_subnet_az_1.id}"
+  route_table_id = "${aws_route_table.terra_route_table.id}"
+}
+
+resource "aws_route_table_association" "terra_route_table_assoc_az_2" {
+  count          = "${var.az_count}"
+  subnet_id      = "${aws_subnet.terra_ingress_subnet_az_2.id}"
   route_table_id = "${aws_route_table.terra_route_table.id}"
 }
 
@@ -194,7 +239,7 @@ resource "aws_launch_configuration" "terra_lc" {
   }
 }
 
-resource "aws_autoscaling_group" "terra-app-asg" {
+resource "aws_autoscaling_group" "terra-app-asg_az_1" {
   name                      = "garretts-terra-app-asg"
   max_size                  = 2
   min_size                  = 2
@@ -204,7 +249,37 @@ resource "aws_autoscaling_group" "terra-app-asg" {
   force_delete              = true
   placement_group           = "${aws_placement_group.terra-pg.id}"
   launch_configuration      = "${aws_launch_configuration.terra_lc.name}"
-  vpc_zone_identifier       = ["${aws_subnet.terra_private_subnet.*.id}"]
+  vpc_zone_identifier       = ["${aws_subnet.terra_ingress_subnet_az_1.id}"]
+  target_group_arns         = ["${aws_alb_target_group.terra_alb_target_group.}]
+
+  initial_lifecycle_hook {
+    name                 = "terra-lifecycle-hook"
+    default_result       = "CONTINUE"
+    heartbeat_timeout    = 2000
+    lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
+    notification_target_arn = "arn:aws:sqs:us-east-1:444455556666:queue1*"
+    role_arn                = "arn:aws:iam::123456789012:role/S3Access"
+  }
+
+  tag {
+    key                 = "from"
+    value               = "terraform"
+    propagate_at_launch = true
+  }
+
+}
+
+resource "aws_autoscaling_group" "terra-app-asg_az_2" {
+  name                      = "garretts-terra-app-asg"
+  max_size                  = 2
+  min_size                  = 2
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 2
+  force_delete              = true
+  placement_group           = "${aws_placement_group.terra-pg.id}"
+  launch_configuration      = "${aws_launch_configuration.terra_lc.name}"
+  vpc_zone_identifier       = ["${aws_subnet.terra_ingress_subnet_az_2.id}"]
 
   initial_lifecycle_hook {
     name                 = "terra-lifecycle-hook"

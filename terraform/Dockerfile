@@ -17,11 +17,14 @@ apt-get install vim -y
 
 # Download terraform for linux
 # RUN wget https://releases.hashicorp.com/terraform/0.11.10/terraform_0.11.10_linux_amd64.zip
-RUN wget https://releases.hashicorp.com/terraform/0.12.0-alpha4/terraform_0.12.0-alpha4_terraform_0.12.0-alpha4_linux_amd64.zip
+#RUN wget https://releases.hashicorp.com/terraform/0.12.0-alpha4/terraform_0.12.0-alpha4_terraform_0.12.0-alpha4_linux_amd64.zip
+RUN wget https://releases.hashicorp.com/terraform/0.11.11/terraform_0.11.11_linux_amd64.zip
 
 # Unzip
 # RUN unzip terraform_0.11.10_linux_amd64.zip
-RUN unzip terraform_0.12.0-alpha4_terraform_0.12.0-alpha4_linux_amd64.zip
+# RUN unzip terraform_0.12.0-alpha4_terraform_0.12.0-alpha4_linux_amd64.zip
+RUN unzip terraform_0.11.11_linux_amd64.zip
+
 # Move to local bin
 RUN mv terraform /usr/local/bin/
 # Check that it's installed

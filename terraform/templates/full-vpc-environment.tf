@@ -75,8 +75,8 @@ resource "aws_subnet" "terra_data_subnet_az_2" {
   ]
 }
 
-resource "aws_security_group" "allow_all" {
-  name        = "allow_all"
+resource "aws_security_group" "garrett_terra_allow_all" {
+  name        = "garrett_terra_allow_all"
   description = "Allow all inbound traffic"
   vpc_id     = "${aws_vpc.terra_vpc.id}"
 
@@ -88,7 +88,7 @@ resource "aws_security_group" "allow_all" {
   }
 
   tags = {
-    Name = "allow_all"
+    Name = "garrett_terra_allow_all"
   }
 
   depends_on = [
@@ -97,7 +97,7 @@ resource "aws_security_group" "allow_all" {
 }
 
 resource "aws_security_group" "terra_instance_sg" {
-  name        = "allow_all"
+  name        = "terra_instance_sg"
   description = "Allow all inbound traffic"
   vpc_id     = "${aws_vpc.terra_vpc.id}"
 
@@ -109,7 +109,7 @@ resource "aws_security_group" "terra_instance_sg" {
   }
 
   tags = {
-    Name = "allow_all"
+    Name = "terra_instance_sg"
   }
 
   depends_on = [
@@ -122,7 +122,7 @@ resource "aws_s3_bucket" "lb_logs" {
   acl    = "public"
 
   tags = {
-    Name        = "My bucket"
+    Name        = "Mybucket"
     Environment = "Dev"
   }
 }
@@ -142,7 +142,7 @@ resource "aws_alb" "terra_alb" {
   name               = "garretts-terra-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = ["${aws_security_group.allow_all.id}"]
+  security_groups    = ["${aws_security_group.garrett_terra_allow_all.id}"]
   subnets            = ["${aws_subnet.terra_ingress_subnet_az_1.id}","${aws_subnet.terra_ingress_subnet_az_2.id}"]
 
   enable_deletion_protection = true
@@ -158,7 +158,7 @@ resource "aws_alb" "terra_alb" {
   }
 
   depends_on = [
-    "aws_security_group.allow_all",
+    "aws_security_group.garrett_terra_allow_all",
     "aws_subnet.terra_ingress_subnet_az_1",
     "aws_subnet.terra_ingress_subnet_az_2",
     "aws_s3_bucket.lb_logs"
@@ -315,7 +315,7 @@ resource "aws_launch_configuration" "terra_lc" {
   name_prefix   = "terraform-lc-example-"
   image_id      = "${data.aws_ami.nginx-ubuntu.id}"
   instance_type = "t2.micro"
-  key_name                    = "${var.key_name}"
+  key_name      = "${var.key_name}"
 
 
   lifecycle {
@@ -328,7 +328,7 @@ resource "aws_autoscaling_group" "terra-app-asg_az_1" {
   launch_configuration = "${aws_launch_configuration.terra_lc.name}"
   min_size             = 1
   max_size             = 2
-  vpc_zone_identifier       = ["${aws_subnet.terra_ingress_subnet_az_1.id}"]
+  vpc_zone_identifier       = ["${aws_subnet.terra_private_subnet_az_1.id}"]
   target_group_arns         = ["${aws_alb_target_group.terra_alb_target_group.id}"]
 
   lifecycle {
@@ -341,7 +341,7 @@ resource "aws_autoscaling_group" "terra-app-asg_az_2" {
   launch_configuration = "${aws_launch_configuration.terra_lc.name}"
   min_size             = 1
   max_size             = 2
-  vpc_zone_identifier       = ["${aws_subnet.terra_ingress_subnet_az_1.id}"]
+  vpc_zone_identifier       = ["${aws_subnet.terra_private_subnet_az_2.id}"]
   target_group_arns         = ["${aws_alb_target_group.terra_alb_target_group.id}"]
 
   lifecycle {

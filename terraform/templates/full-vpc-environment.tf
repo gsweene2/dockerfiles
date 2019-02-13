@@ -277,99 +277,76 @@ resource "aws_iam_role" "terra_app_instance" {
 EOF
 }
 
-resource "aws_launch_configuration" "terra_lc" {
-  security_groups = [
-    "${aws_security_group.terra_instance_sg.id}",
-  ]
 
+
+data "aws_ami" "ubuntu" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"] # Canonical
+}
+
+data "aws_ami" "nginx-ubuntu" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["nginx-plus-ami-ubuntu-hvm-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["679593333241"] # Canonical
+}
+
+resource "aws_launch_configuration" "terra_lc" {
+  name_prefix   = "terraform-lc-example-"
+  image_id      = "${data.aws_ami.nginx-ubuntu.id}"
+  instance_type = "t2.micro"
   key_name                    = "${var.key_name}"
-  image_id                    = "${data.aws_ami.basic_ubuntu.id}"
-  instance_type               = "${var.instance_type}"
-  iam_instance_profile        = "${aws_iam_instance_profile.app.name}"
-  user_data                   = "${data.template_file.cloud_config.rendered}"
-  associate_public_ip_address = true
+
 
   lifecycle {
     create_before_destroy = true
   }
-
-  depends_on = [
-    "aws_iam_instance_profile.app"
-  ]
 }
 
 resource "aws_autoscaling_group" "terra-app-asg_az_1" {
-  name                      = "garretts-terra-app-asg"
-  max_size                  = 2
-  min_size                  = 2
-  health_check_grace_period = 300
-  health_check_type         = "ELB"
-  desired_capacity          = 2
-  force_delete              = true
-  placement_group           = "${aws_placement_group.terra-pg.id}"
-  launch_configuration      = "${aws_launch_configuration.terra_lc.name}"
+  name                 = "terraform-asg-example-1"
+  launch_configuration = "${aws_launch_configuration.terra_lc.name}"
+  min_size             = 1
+  max_size             = 2
   vpc_zone_identifier       = ["${aws_subnet.terra_ingress_subnet_az_1.id}"]
   target_group_arns         = ["${aws_alb_target_group.terra_alb_target_group.id}"]
 
-  initial_lifecycle_hook {
-    name                 = "terra-lifecycle-hook"
-    default_result       = "CONTINUE"
-    heartbeat_timeout    = 2000
-    lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
-    notification_target_arn = "arn:aws:sqs:us-east-1:444455556666:queue1*"
-    role_arn                = "arn:aws:iam::123456789012:role/S3Access"
+  lifecycle {
+    create_before_destroy = true
   }
-
-  tag {
-    key                 = "from"
-    value               = "terraform"
-    propagate_at_launch = true
-  }
-
-  depends_on = [
-    "aws_placement_group.terra-pg",
-    "aws_launch_configuration.terra_lc",
-    "aws_subnet.terra_ingress_subnet_az_1",
-    "aws_alb_target_group.terra_alb_target_group"
-  ]
-
 }
 
 resource "aws_autoscaling_group" "terra-app-asg_az_2" {
-  name                      = "garretts-terra-app-asg"
-  max_size                  = 2
-  min_size                  = 2
-  health_check_grace_period = 300
-  health_check_type         = "ELB"
-  desired_capacity          = 2
-  force_delete              = true
-  placement_group           = "${aws_placement_group.terra-pg.id}"
-  launch_configuration      = "${aws_launch_configuration.terra_lc.name}"
-  vpc_zone_identifier       = ["${aws_subnet.terra_ingress_subnet_az_2.id}"]
+  name                 = "terraform-asg-example-2"
+  launch_configuration = "${aws_launch_configuration.terra_lc.name}"
+  min_size             = 1
+  max_size             = 2
+  vpc_zone_identifier       = ["${aws_subnet.terra_ingress_subnet_az_1.id}"]
   target_group_arns         = ["${aws_alb_target_group.terra_alb_target_group.id}"]
 
-  initial_lifecycle_hook {
-    name                 = "terra-lifecycle-hook"
-    default_result       = "CONTINUE"
-    heartbeat_timeout    = 2000
-    lifecycle_transition = "autoscaling:EC2_INSTANCE_LAUNCHING"
-    notification_target_arn = "arn:aws:sqs:us-east-1:444455556666:queue1*"
-    role_arn                = "arn:aws:iam::123456789012:role/S3Access"
+  lifecycle {
+    create_before_destroy = true
   }
-
-  tag {
-    key                 = "from"
-    value               = "terraform"
-    propagate_at_launch = true
-  }
-
-  depends_on = [
-    "aws_placement_group.terra-pg",
-    "aws_launch_configuration.terra_lc",
-    "aws_subnet.terra_ingress_subnet_az_2",
-    "aws_alb_target_group.terra_alb_target_group"
-  ]
-
 }
 
 data "template_file" "cloud_config" {

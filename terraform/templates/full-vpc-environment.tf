@@ -294,10 +294,15 @@ resource "aws_launch_configuration" "terra_lc" {
   image_id      = "${data.aws_ami.nginx-ubuntu.id}"
   instance_type = "t2.micro"
   key_name      = "${var.key_name}"
+  security_groups = ["${aws_security_group.terra_instance_sg.id}"]
 
   lifecycle {
     create_before_destroy = true
   }
+
+  depends_on = [
+    "aws_security_group.terra_instance_sg"
+  ]
 }
 
 resource "aws_autoscaling_group" "terra-app-asg_az_1" {
@@ -311,6 +316,12 @@ resource "aws_autoscaling_group" "terra-app-asg_az_1" {
   lifecycle {
     create_before_destroy = true
   }
+
+  depends_on = [
+    "aws_launch_configuration.terra_lc",
+    "aws_subnet.terra_private_subnet_az_1",
+    "aws_alb_target_group.terra_alb_target_group"
+  ]
 }
 
 resource "aws_autoscaling_group" "terra-app-asg_az_2" {
@@ -324,6 +335,12 @@ resource "aws_autoscaling_group" "terra-app-asg_az_2" {
   lifecycle {
     create_before_destroy = true
   }
+
+  depends_on = [
+    "aws_launch_configuration.terra_lc",
+    "aws_subnet.terra_private_subnet_az_2",
+    "aws_alb_target_group.terra_alb_target_group"
+  ]
 }
 
 data "template_file" "cloud_config" {

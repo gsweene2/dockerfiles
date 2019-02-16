@@ -117,16 +117,6 @@ resource "aws_security_group" "terra_instance_sg" {
   ]
 }
 
-resource "aws_s3_bucket" "lb_logs" {
-  bucket = "garrett-my-tf-test-bucket"
-  acl    = "public"
-
-  tags = {
-    Name        = "Mybucket"
-    Environment = "Dev"
-  }
-}
-
 resource "aws_alb_target_group" "terra_alb_target_group" {
   name     = "garrett-terra-alb-target-group"
   port     = 8080
@@ -147,12 +137,6 @@ resource "aws_alb" "terra_alb" {
 
   enable_deletion_protection = true
 
-  access_logs {
-    bucket  = "${aws_s3_bucket.lb_logs.bucket}"
-    prefix  = "test-lb"
-    enabled = true
-  }
-
   tags = {
     Environment = "production"
   }
@@ -160,8 +144,7 @@ resource "aws_alb" "terra_alb" {
   depends_on = [
     "aws_security_group.garrett_terra_allow_all",
     "aws_subnet.terra_ingress_subnet_az_1",
-    "aws_subnet.terra_ingress_subnet_az_2",
-    "aws_s3_bucket.lb_logs"
+    "aws_subnet.terra_ingress_subnet_az_2"
   ]
 }
 
@@ -226,11 +209,6 @@ resource "aws_route_table_association" "terra_route_table_assoc_az_2" {
 }
 
 ## Compute
-
-resource "aws_placement_group" "terra-pg" {
-  name     = "test"
-  strategy = "cluster"
-}
 
 data "aws_ami" "basic_ubuntu" {
   most_recent = true
@@ -316,7 +294,6 @@ resource "aws_launch_configuration" "terra_lc" {
   image_id      = "${data.aws_ami.nginx-ubuntu.id}"
   instance_type = "t2.micro"
   key_name      = "${var.key_name}"
-
 
   lifecycle {
     create_before_destroy = true

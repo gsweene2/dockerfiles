@@ -8,11 +8,28 @@ Is this good practice? Who knows, but it sounds good to me.
 
 # Directions to build image
 
+```
 docker build . -t terraform
 
 docker run -it <image_id>
 
-garrett-terraform
+```
+
+Update your aws credentials at `~/.aws/credentials`
+
+```
+
+cd /usr/local/bin/templates/
+
+terraform init
 
 terraform plan \
 	-var key_name="garrett-terraform"
+
+terraform destroy \
+    -var key_name="garrett-terraform"
+
+terraform apply \
+    -var key_name="garrett-terraform"
+
+```    

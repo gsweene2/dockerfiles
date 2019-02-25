@@ -6,7 +6,7 @@ provider "aws" {
 
 resource "aws_vpc" "terra_vpc" {
   cidr_block       = "10.0.0.0/16"
-  instance_tenancy = "dedicated"
+  instance_tenancy = "default"
 
   tags = {
     Name = "main"
@@ -119,7 +119,7 @@ resource "aws_security_group" "terra_instance_sg" {
 
 resource "aws_alb_target_group" "terra_alb_target_group" {
   name     = "garrett-terra-alb-target-group"
-  port     = 8080
+  port     = 80
   protocol = "HTTP"
   vpc_id   = "${aws_vpc.terra_vpc.id}"
 
@@ -135,7 +135,7 @@ resource "aws_alb" "terra_alb" {
   security_groups    = ["${aws_security_group.garrett_terra_allow_all.id}"]
   subnets            = ["${aws_subnet.terra_ingress_subnet_az_1.id}","${aws_subnet.terra_ingress_subnet_az_2.id}"]
 
-  enable_deletion_protection = true
+  enable_deletion_protection = false
 
   tags = {
     Environment = "production"
@@ -227,7 +227,7 @@ data "aws_ami" "basic_ubuntu" {
 }
 
 resource "aws_iam_instance_profile" "app" {
-  name = "tf-ecs-instprofile"
+  name = "garrett-terra-instance-profile"
   role = "${aws_iam_role.terra_app_instance.name}"
 
   depends_on = [

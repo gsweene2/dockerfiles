@@ -19,6 +19,7 @@ resource "aws_subnet" "terra_ingress_subnet_az_1" {
   vpc_id     = "${aws_vpc.terra_vpc.id}"
   cidr_block        = "10.0.1.0/24"
   availability_zone = "us-west-2a"
+  map_public_ip_on_launch = "true"
 
   depends_on = [
     "aws_vpc.terra_vpc"
@@ -29,6 +30,7 @@ resource "aws_subnet" "terra_ingress_subnet_az_2" {
   vpc_id     = "${aws_vpc.terra_vpc.id}"
   cidr_block        = "10.0.2.0/24"
   availability_zone = "us-west-2b"
+  map_public_ip_on_launch = "true"
 
   depends_on = [
     "aws_vpc.terra_vpc"
@@ -115,6 +117,25 @@ resource "aws_security_group" "terra_instance_sg" {
   depends_on = [
     "aws_vpc.terra_vpc"
   ]
+}
+
+resource "aws_instance" "bastion" {
+  ami = "ami-01e24be29428c15b2"
+  instance_type = "t2.micro"
+  subnet_id = "${aws_subnet.terra_ingress_subnet_az_1.id}"
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo yum update -y
+              sudo yum install httpd -y
+              export PASSWORD='aws secretsmanager get-secret-value --secret-id garretts-example-secret-key --region us-west-1'
+              touch ~/myPASSWORD.txt
+              echo PASSWORD > ~/myPASSWORD.txt
+              EOF
+  key_name = "${var.key_name}"
+  security_groups = ["${aws_security_group.garrett_terra_allow_all.id}"]
+  tags {
+    Name = "garrett terraform instance"
+  }
 }
 
 resource "aws_alb_target_group" "terra_alb_target_group" {

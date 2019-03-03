@@ -115,23 +115,72 @@ resource "aws_security_group" "terra_instance_sg" {
   ]
 }
 
-resource "aws_instance" "bastion" {
-  ami = "ami-01e24be29428c15b2"
-  instance_type = "t2.micro"
-  subnet_id = "${aws_subnet.terra_ingress_subnet_az_1.id}"
-  user_data = <<-EOF
-              #!/bin/bash
-              sudo yum update -y
-              sudo yum install httpd -y
-              export PASSWORD='aws secretsmanager get-secret-value --secret-id garretts-example-secret-key --region us-west-1'
-              touch ~/myPASSWORD.txt
-              echo PASSWORD > ~/myPASSWORD.txt
-              EOF
-  key_name = "${var.key_name}"
-  security_groups = ["${aws_security_group.garrett_terra_allow_all.id}"]
-  tags {
-    Name = "garrett terraform instance"
+resource "aws_security_group" "terra_bastion_sg" {
+  name        = "terra_bastion_sg"
+  description = "Allow all inbound traffic"
+  vpc_id     = "${aws_vpc.terra_vpc.id}"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["${var.bastion_ssh_from}"]
   }
+
+  egress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
+
+  egress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.4.0/24"]
+  }
+
+  tags = {
+    Name = "terra_bastion_sg"
+  }
+
+  depends_on = [
+    "aws_vpc.terra_vpc"
+  ]
+}
+
+resource "aws_launch_configuration" "terra_bastion_lc" {
+  name_prefix   = "terraform-bastion-"
+  image_id      = "ami-01e24be29428c15b2"
+  instance_type = "t2.micro"
+  key_name      = "${var.key_name}"
+  security_groups = ["${aws_security_group.terra_bastion_sg.id}"]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [
+    "aws_security_group.terra_bastion_sg"
+  ]
+}
+
+resource "aws_autoscaling_group" "terra-bastion" {
+  name                 = "terraform-bastion-asg"
+  launch_configuration = "${aws_launch_configuration.terra_bastion_lc.name}"
+  min_size             = 1
+  max_size             = 1
+  vpc_zone_identifier       = ["${aws_subnet.terra_ingress_subnet_az_1.id}"]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [
+    "aws_launch_configuration.terra_bastion_lc",
+    "aws_subnet.terra_ingress_subnet_az_1",
+  ]
 }
 
 resource "aws_alb_target_group" "terra_alb_target_group" {

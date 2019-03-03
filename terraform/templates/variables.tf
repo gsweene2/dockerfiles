@@ -36,3 +36,7 @@ variable "service_desired" {
   description = "Desired numbers of instances in the ecs service"
   default     = "1"
 }
+
+variable "bastion_ssh_from" {
+  description = "CIDR block allowed to ssh to bastion"
+}

@@ -73,34 +73,6 @@ resource "aws_subnet" "terra_private_subnet_az_2" {
   ]
 }
 
-resource "aws_subnet" "terra_data_subnet_az_1" {
-  vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block        = "10.0.5.0/24"
-  availability_zone = "us-west-2a"
-
-  tags = {
-    Name = "Data Subnet 1"
-  }
-
-  depends_on = [
-    "aws_vpc.terra_vpc"
-  ]
-}
-
-resource "aws_subnet" "terra_data_subnet_az_2" {
-  vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block        = "10.0.6.0/24"
-  availability_zone = "us-west-2b"
-
-  tags = {
-    Name = "Data Subnet 2"
-  }
-  
-  depends_on = [
-    "aws_vpc.terra_vpc"
-  ]
-}
-
 resource "aws_security_group" "garrett_terra_allow_all" {
   name        = "garrett_terra_allow_all"
   description = "Allow all inbound traffic"
@@ -217,7 +189,7 @@ resource "aws_internet_gateway" "terra_gw" {
   ]
 }
 
-resource "aws_route_table" "terra_route_table" {
+resource "aws_route_table" "ingress_route_table" {
   vpc_id = "${aws_vpc.terra_vpc.id}"
 
   route {
@@ -231,25 +203,25 @@ resource "aws_route_table" "terra_route_table" {
   ]
 }
 
-resource "aws_route_table_association" "terra_route_table_assoc_az_1" {
+resource "aws_route_table_association" "ingress_route_table_assoc_az_1" {
   count          = "${var.az_count}"
   subnet_id      = "${aws_subnet.terra_ingress_subnet_az_1.id}"
-  route_table_id = "${aws_route_table.terra_route_table.id}"
+  route_table_id = "${aws_route_table.ingress_route_table.id}"
 
   depends_on = [
     "aws_subnet.terra_ingress_subnet_az_1",
-    "aws_route_table.terra_route_table",
+    "aws_route_table.ingress_route_table",
   ]
 }
 
-resource "aws_route_table_association" "terra_route_table_assoc_az_2" {
+resource "aws_route_table_association" "ingress_route_table_assoc_az_2" {
   count          = "${var.az_count}"
   subnet_id      = "${aws_subnet.terra_ingress_subnet_az_2.id}"
-  route_table_id = "${aws_route_table.terra_route_table.id}"
+  route_table_id = "${aws_route_table.ingress_route_table.id}"
 
   depends_on = [
     "aws_subnet.terra_ingress_subnet_az_2",
-    "aws_route_table.terra_route_table"
+    "aws_route_table.ingress_route_table"
   ]
 }
 
@@ -279,6 +251,56 @@ resource "aws_nat_gateway" "gw_2" {
   tags = {
     Name = "gw NAT 2"
   }
+}
+
+resource "aws_route_table" "app_route_table_1" {
+  vpc_id = "${aws_vpc.terra_vpc.id}"
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = "${aws_nat_gateway.gw_1.id}"
+  }
+
+  depends_on = [
+    "aws_vpc.terra_vpc",
+    "aws_nat_gateway.gw_1"
+  ]
+}
+
+resource "aws_route_table_association" "app_route_table_assoc_az_1" {
+  count          = "${var.az_count}"
+  subnet_id      = "${aws_subnet.terra_private_subnet_az_1.id}"
+  route_table_id = "${aws_route_table.app_route_table_1.id}"
+
+  depends_on = [
+    "aws_subnet.terra_private_subnet_az_1",
+    "aws_route_table.app_route_table_1"
+  ]
+}
+
+resource "aws_route_table" "app_route_table_2" {
+  vpc_id = "${aws_vpc.terra_vpc.id}"
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = "${aws_nat_gateway.gw_2.id}"
+  }
+
+  depends_on = [
+    "aws_vpc.terra_vpc",
+    "aws_nat_gateway.gw_2"
+  ]
+}
+
+resource "aws_route_table_association" "app_route_table_assoc_az_2" {
+  count          = "${var.az_count}"
+  subnet_id      = "${aws_subnet.terra_private_subnet_az_2.id}"
+  route_table_id = "${aws_route_table.app_route_table_2.id}"
+
+  depends_on = [
+    "aws_subnet.terra_private_subnet_az_2",
+    "aws_route_table.app_route_table_2"
+  ]
 }
 
 ## Compute

@@ -73,20 +73,34 @@ resource "aws_subnet" "terra_private_subnet_az_2" {
   ]
 }
 
-resource "aws_security_group" "garrett_terra_allow_all" {
-  name        = "garrett_terra_allow_all"
+resource "aws_security_group" "garrett_terra_alb_sg" {
+  name        = "garrett_terra_alb_sg"
   description = "Allow all inbound traffic"
   vpc_id     = "${aws_vpc.terra_vpc.id}"
 
   ingress {
-    from_port   = 0
-    to_port     = 65535
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  egress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.3.0/24"]
+  }
+
+  egress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.4.0/24"]
+  }
+
   tags = {
-    Name = "garrett_terra_allow_all"
+    Name = "garrett_terra_alb_sg"
   }
 
   depends_on = [
@@ -198,7 +212,7 @@ resource "aws_alb" "terra_alb" {
   name               = "garretts-terra-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = ["${aws_security_group.garrett_terra_allow_all.id}"]
+  security_groups    = ["${aws_security_group.garrett_terra_alb_sg.id}"]
   subnets            = ["${aws_subnet.terra_ingress_subnet_az_1.id}","${aws_subnet.terra_ingress_subnet_az_2.id}"]
 
   enable_deletion_protection = false
@@ -208,7 +222,7 @@ resource "aws_alb" "terra_alb" {
   }
 
   depends_on = [
-    "aws_security_group.garrett_terra_allow_all",
+    "aws_security_group.garrett_terra_alb_sg",
     "aws_subnet.terra_ingress_subnet_az_1",
     "aws_subnet.terra_ingress_subnet_az_2"
   ]

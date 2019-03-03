@@ -21,6 +21,10 @@ resource "aws_subnet" "terra_ingress_subnet_az_1" {
   availability_zone = "us-west-2a"
   map_public_ip_on_launch = "true"
 
+  tags = {
+    Name = "Ingress Subnet 1"
+  }
+
   depends_on = [
     "aws_vpc.terra_vpc"
   ]
@@ -32,6 +36,10 @@ resource "aws_subnet" "terra_ingress_subnet_az_2" {
   availability_zone = "us-west-2b"
   map_public_ip_on_launch = "true"
 
+  tags = {
+    Name = "Ingress Subnet 2"
+  }
+
   depends_on = [
     "aws_vpc.terra_vpc"
   ]
@@ -41,6 +49,10 @@ resource "aws_subnet" "terra_private_subnet_az_1" {
   vpc_id     = "${aws_vpc.terra_vpc.id}"
   cidr_block        = "10.0.3.0/24"
   availability_zone = "us-west-2a"
+
+  tags = {
+    Name = "Application Subnet 1"
+  }
 
   depends_on = [
     "aws_vpc.terra_vpc"
@@ -52,6 +64,10 @@ resource "aws_subnet" "terra_private_subnet_az_2" {
   cidr_block        = "10.0.4.0/24"
   availability_zone = "us-west-2b"
 
+  tags = {
+    Name = "Application Subnet 2"
+  }
+
   depends_on = [
     "aws_vpc.terra_vpc"
   ]
@@ -61,6 +77,10 @@ resource "aws_subnet" "terra_data_subnet_az_1" {
   vpc_id     = "${aws_vpc.terra_vpc.id}"
   cidr_block        = "10.0.5.0/24"
   availability_zone = "us-west-2a"
+
+  tags = {
+    Name = "Data Subnet 1"
+  }
 
   depends_on = [
     "aws_vpc.terra_vpc"
@@ -72,6 +92,10 @@ resource "aws_subnet" "terra_data_subnet_az_2" {
   cidr_block        = "10.0.6.0/24"
   availability_zone = "us-west-2b"
 
+  tags = {
+    Name = "Data Subnet 2"
+  }
+  
   depends_on = [
     "aws_vpc.terra_vpc"
   ]
@@ -227,6 +251,34 @@ resource "aws_route_table_association" "terra_route_table_assoc_az_2" {
     "aws_subnet.terra_ingress_subnet_az_2",
     "aws_route_table.terra_route_table"
   ]
+}
+
+resource "aws_eip" "nat_1" {
+  vpc                       = true
+  associate_with_private_ip = "10.0.1.11"
+}
+
+resource "aws_eip" "nat_2" {
+  vpc                       = true
+  associate_with_private_ip = "10.0.2.11"
+}
+
+resource "aws_nat_gateway" "gw_1" {
+  allocation_id = "${aws_eip.nat_1.id}"
+  subnet_id     = "${aws_subnet.terra_ingress_subnet_az_1.id}"
+
+  tags = {
+    Name = "gw NAT 1"
+  }
+}
+
+resource "aws_nat_gateway" "gw_2" {
+  allocation_id = "${aws_eip.nat_2.id}"
+  subnet_id     = "${aws_subnet.terra_ingress_subnet_az_2.id}"
+
+  tags = {
+    Name = "gw NAT 2"
+  }
 }
 
 ## Compute

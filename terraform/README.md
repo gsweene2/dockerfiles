@@ -26,6 +26,9 @@ terraform init
 terraform plan \
 	-var key_name="garrett-terraform"
 
+terraform refresh \
+	-var key_name="garrett-terraform"
+
 terraform destroy \
     -var key_name="garrett-terraform"
 

@@ -30,4 +30,6 @@ RUN mkdir ~/.aws && touch ~/.aws/credentials
 ################################
 
 # Install Serverless
-RUN apk add --update nodejs
+RUN apk add --update nodejs-npm
+
+RUN npm install -g serverless

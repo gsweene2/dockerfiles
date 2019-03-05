@@ -1,11 +1,11 @@
 provider "aws" {
-  region = "us-west-2"
+  region = "${var.aws_region}"
 }
 
 ## Network
 
 resource "aws_vpc" "terra_vpc" {
-  cidr_block       = "10.0.0.0/16"
+  cidr_block       = "${var.vpc_cidr}"
   instance_tenancy = "default"
 
   tags = {
@@ -13,11 +13,9 @@ resource "aws_vpc" "terra_vpc" {
   }
 }
 
-data "aws_availability_zones" "available" {}
-
 resource "aws_subnet" "terra_ingress_subnet_az_1" {
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block        = "10.0.1.0/24"
+  cidr_block        = "${var.ingress_subnet_az_1_CIDR}"
   availability_zone = "us-west-2a"
   map_public_ip_on_launch = "true"
 
@@ -32,7 +30,7 @@ resource "aws_subnet" "terra_ingress_subnet_az_1" {
 
 resource "aws_subnet" "terra_ingress_subnet_az_2" {
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block        = "10.0.2.0/24"
+  cidr_block        = "${var.ingress_subnet_az_2_CIDR}"
   availability_zone = "us-west-2b"
   map_public_ip_on_launch = "true"
 
@@ -47,7 +45,7 @@ resource "aws_subnet" "terra_ingress_subnet_az_2" {
 
 resource "aws_subnet" "terra_private_subnet_az_1" {
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block        = "10.0.3.0/24"
+  cidr_block        = "${var.private_subnet_az_1_CIDR}"
   availability_zone = "us-west-2a"
 
   tags = {
@@ -61,7 +59,7 @@ resource "aws_subnet" "terra_private_subnet_az_1" {
 
 resource "aws_subnet" "terra_private_subnet_az_2" {
   vpc_id     = "${aws_vpc.terra_vpc.id}"
-  cidr_block        = "10.0.4.0/24"
+  cidr_block        = "${var.private_subnet_az_2_CIDR}"
   availability_zone = "us-west-2b"
 
   tags = {
@@ -89,14 +87,14 @@ resource "aws_security_group" "garrett_terra_alb_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["10.0.3.0/24"]
+    cidr_blocks = ["${var.private_subnet_az_1_CIDR}"]
   }
 
   egress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["10.0.4.0/24"]
+    cidr_blocks = ["${var.private_subnet_az_2_CIDR}"]
   }
 
   tags = {
@@ -108,20 +106,34 @@ resource "aws_security_group" "garrett_terra_alb_sg" {
   ]
 }
 
-resource "aws_security_group" "terra_instance_sg" {
-  name        = "terra_instance_sg"
+resource "aws_security_group" "terra_app_server_sg" {
+  name        = "terra_app_server_sg"
   description = "Allow all inbound traffic"
   vpc_id     = "${aws_vpc.terra_vpc.id}"
 
   ingress {
-    from_port   = 0
-    to_port     = 65535
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["${var.ingress_subnet_az_1_CIDR}"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["${var.ingress_subnet_az_2_CIDR}"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["${var.ingress_subnet_az_1_CIDR}"]
   }
 
   tags = {
-    Name = "terra_instance_sg"
+    Name = "terra_app_server_sg"
   }
 
   depends_on = [
@@ -145,14 +157,14 @@ resource "aws_security_group" "terra_bastion_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["10.0.3.0/24"]
+    cidr_blocks = ["${var.private_subnet_az_1_CIDR}"]
   }
 
   egress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["10.0.4.0/24"]
+    cidr_blocks = ["${var.private_subnet_az_2_CIDR}"]
   }
 
   tags = {
@@ -290,12 +302,12 @@ resource "aws_route_table_association" "ingress_route_table_assoc_az_2" {
 
 resource "aws_eip" "nat_1" {
   vpc                       = true
-  associate_with_private_ip = "10.0.1.11"
+  associate_with_private_ip = "${var.ingress_subnet_az_1_nat_ip}"
 }
 
 resource "aws_eip" "nat_2" {
   vpc                       = true
-  associate_with_private_ip = "10.0.2.11"
+  associate_with_private_ip = "${var.ingress_subnet_az_2_nat_ip}"
 }
 
 resource "aws_nat_gateway" "gw_1" {
@@ -368,69 +380,6 @@ resource "aws_route_table_association" "app_route_table_assoc_az_2" {
 
 ## Compute
 
-data "aws_ami" "basic_ubuntu" {
-  most_recent = true
-
-    filter {
-        name   = "name"
-        values = ["ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-*"]
-    }
-
-    filter {
-        name   = "virtualization-type"
-        values = ["hvm"]
-    }
-
-    owners = ["099720109477"]
-}
-
-resource "aws_iam_instance_profile" "app" {
-  name = "garrett-terra-instance-profile"
-  role = "${aws_iam_role.terra_app_instance.name}"
-
-  depends_on = [
-    "aws_iam_role.terra_app_instance"
-  ]
-}
-
-resource "aws_iam_role" "terra_app_instance" {
-  name = "garrett-terra-instance-role"
-
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "",
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-EOF
-}
-
-
-
-data "aws_ami" "ubuntu" {
-  most_recent = true
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["099720109477"] # Canonical
-}
-
 data "aws_ami" "nginx-ubuntu" {
   most_recent = true
 
@@ -452,14 +401,14 @@ resource "aws_launch_configuration" "terra_lc" {
   image_id      = "${data.aws_ami.nginx-ubuntu.id}"
   instance_type = "t2.micro"
   key_name      = "${var.key_name}"
-  security_groups = ["${aws_security_group.terra_instance_sg.id}"]
+  security_groups = ["${aws_security_group.terra_app_server_sg.id}"]
 
   lifecycle {
     create_before_destroy = true
   }
 
   depends_on = [
-    "aws_security_group.terra_instance_sg"
+    "aws_security_group.terra_app_server_sg"
   ]
 }
 
@@ -499,12 +448,4 @@ resource "aws_autoscaling_group" "terra-app-asg_az_2" {
     "aws_subnet.terra_private_subnet_az_2",
     "aws_alb_target_group.terra_alb_target_group"
   ]
-}
-
-data "template_file" "cloud_config" {
-  template = "${file("${path.module}/cloud-config.yml")}"
-
-  vars {
-    aws_region         = "${var.aws_region}"
-  }
 }

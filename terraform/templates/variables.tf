@@ -65,3 +65,13 @@ variable "private_subnet_az_2_CIDR" {
   description = "Ingress Subnet AZ 1 CIDR"
   default = "10.0.4.0/24"
 }
+
+variable "ingress_subnet_az_1_nat_ip" {
+  description = "Ingress Subnet AZ 1 CIDR"
+  default = "10.0.1.11"
+}
+
+variable "ingress_subnet_az_2_nat_ip" {
+  description = "Ingress Subnet AZ 1 CIDR"
+  default = "10.0.2.11"
+}

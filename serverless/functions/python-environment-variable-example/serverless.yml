@@ -1,0 +1,19 @@
+service: python-example-environment-variables # NOTE: update this with your service name
+
+provider:
+  name: aws
+  runtime: python2.7
+  region: us-west-2
+
+  environment:
+    variable1: value1
+    variable2: value2
+    FIRST_NAME: "Garrett"
+
+functions:
+  hello-env-garrett:
+    handler: handler.hello
+  hello-env-mark:
+    handler: handler.hello
+    environment:
+      FIRST_NAME: "Mark"

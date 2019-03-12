@@ -1,0 +1,16 @@
+service: python-example-vpc # NOTE: update this with your service name
+
+provider:
+  name: aws
+  runtime: python2.7
+  region: us-west-2
+  vpc:
+    securityGroupIds:
+      - sg-6d0b471e
+    subnetIds:
+      - subnet-2eeaba57
+      - subnet-d9433e92
+
+functions:
+  hello:
+    handler: handler.hello

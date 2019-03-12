@@ -1,0 +1,16 @@
+service: python-example-iam # NOTE: update this with your service name
+
+provider:
+  name: aws
+  runtime: python2.7
+  region: us-west-2
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "lambda:*"
+      Resource:
+        - "*"
+
+functions:
+  serverless-iam-example:
+    handler: handler.hello
